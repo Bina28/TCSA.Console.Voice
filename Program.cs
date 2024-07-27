@@ -18,6 +18,7 @@ var products = new List<Product>
 };
 
 var order = new List<Product>();
+
 await GetOrder();
 
 async Task GetOrder()
@@ -30,14 +31,9 @@ async Task GetOrder()
     while (continueOrdering)
     {
         Console.Clear();
-        if (order.Count > 0)
-        {
-            ShowOrderSummary(order);
-        }
+        Showgrid();
 
-        ShowProducts();
-
-        Console.WriteLine("Which coffee would you like?");
+        Console.WriteLine("\nWhich coffee would you like? If you'd like to finish your order, say 'finish'");
         bool speechRecognized = false;
 
         while (!speechRecognized)
@@ -47,6 +43,12 @@ async Task GetOrder()
             if (result.Reason == ResultReason.RecognizedSpeech)
             {
                 string userChoice = Regex.Replace(result.Text.Trim().ToLower(), @"[^a-z0-9\s]", "");
+
+                if (userChoice == "finish")
+                {
+                    continueOrdering = false;
+                    break;
+                }
 
                 var selectedProduct = products.FirstOrDefault(p => p.Name.ToLower() == userChoice);
 
@@ -64,53 +66,74 @@ async Task GetOrder()
             }
         }
 
-        Console.WriteLine("Press any key to continue");
-        Console.ReadKey();
-
-        Console.Clear();
-        Console.WriteLine("Do you want to order something else? (yes/no)");
-        var continueResult = await recognizer.RecognizeOnceAsync();
-
-        if (continueResult.Reason == ResultReason.RecognizedSpeech)
+        if (continueOrdering)
         {
-            string continueChoice = continueResult.Text.Trim().ToLower();
-            continueOrdering = continueChoice.StartsWith("y");
-        }
-        else
-        {
-            Console.WriteLine("Assuming you want to continue ordering.");
+            Console.WriteLine("Press any key to continue");
+            Console.ReadKey();
         }
     }
 
-    ShowOrderSummary(order);
-
-    decimal finalTotalPrice = order.Sum(p => p.price);
-    Console.WriteLine($"Total price: {finalTotalPrice.ToString("C", CultureInfo.CurrentCulture)}");
+    Console.WriteLine($"Order Completed! Your coffee is coming soon!");
 }
 
-void ShowProducts()
+void Showgrid()
 {
-    var table = new Table();
+    var menuPanel = CreateMenuPanel();
+    var orderPanel = CreateOrderPanel();
 
-    table.AddColumn("Name");
-    table.AddColumn("Price");
+    var grid = new Grid();
+    grid.AddColumn();
+    grid.AddColumn();
+    grid.AddRow(menuPanel, orderPanel);
+
+    AnsiConsole.Write(grid);
+}
+
+Panel CreateMenuPanel()
+{
+    var table = new Table()
+        .Centered();
+
+    table.AddColumn("[bold yellow]Name[/]");
+    table.AddColumn("[bold yellow]Price[/]");
 
     foreach (var product in products)
     {
-        table.AddRow(product.Name, product.price.ToString("C"));
+        table.AddRow($"[green]{product.Name}[/]", $"[blue]{product.price.ToString("C")}[/]");
     }
 
-    AnsiConsole.Write(table);
+    return new Panel(table)
+    {
+        Header = new PanelHeader("[underline cyan]Product List[/]"),
+        Border = BoxBorder.Rounded,
+        BorderStyle = new Style(Color.DeepSkyBlue2), 
+        Padding = new Padding(1) 
+    }; 
 }
 
-void ShowOrderSummary(List<Product> order)
+Panel CreateOrderPanel()
 {
-    Console.WriteLine("\nYour order summary:");
+    var orderTable = new Table();
+    orderTable.AddColumn("[bold yellow]Order Item[/]");
+    orderTable.AddColumn("[bold yellow]Price[/]");
+
     foreach (var item in order)
     {
-        Console.WriteLine($"{item.Name} - {item.price:C}");
+        orderTable.AddRow($"[green]{item.Name}[/]", $"[blue]{item.price.ToString("C")}[/]");
     }
-    Console.WriteLine();
+
+    var totalPrice = order.Sum(item => item.price);
+
+    orderTable.AddEmptyRow();
+    orderTable.AddRow("[bold yellow]Total[/]", $"[bold red]{totalPrice:C}[/]");
+
+    return new Panel(orderTable)
+    {
+        Header = new PanelHeader("[underline cyan]Current Order[/]"),
+        Border = BoxBorder.Rounded,
+        BorderStyle = new Style(Color.GreenYellow),
+        Padding = new Padding(1)
+    };
 }
 
 record Product(int id, string Name, decimal price);
